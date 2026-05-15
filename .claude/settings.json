@@ -20,7 +20,10 @@
       "Bash(grep *)",
       "Bash(find *)",
       "Bash(ls *)",
-      "Bash(grep -E \"^/Users/jens/Workspace/projekte/sonos-py/[^/]+$\")"
+      "Bash(grep -E \"^/Users/jens/Workspace/projekte/sonos-py/[^/]+$\")",
+      "Bash(.venv.mac/bin/python *)",
+      "Bash(.venv.mac/bin/sonos *)",
+      "Skill(create-readme:*)",
     ],
     "defaultMode": "acceptEdits"
   }

@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import Any
 
-from sonos.core.errors import NetworkError
+from sonos.core.errors import InvalidInputError, NetworkError, PlaybackError, TargetNotFoundError
 from sonos.core.models import (
     EqPatch,
     MediaSource,
@@ -76,7 +76,20 @@ class SoCoBackend:
         self._topology: SonosTopology | None = None
 
     async def _run_soco(self, fn, *args, **kwargs):  # type: ignore[no-untyped-def]  # noqa: ANN001,ANN201
-        return await asyncio.to_thread(fn, *args, **kwargs)
+        try:
+            return await asyncio.to_thread(fn, *args, **kwargs)
+        except Exception as exc:
+            # Translate SoCo-specific and network exceptions to domain errors.
+            cls_name = type(exc).__name__
+            module = type(exc).__module__ or ""
+            if cls_name == "SoCoUPnPException":
+                code = getattr(exc, "error_code", "") or "?"
+                raise PlaybackError(f"UPnP error {code}: {exc}") from exc
+            if cls_name in ("SoCoException", "SoCoSlaveException"):
+                raise NetworkError(str(exc)) from exc
+            if cls_name in ("ReadTimeout", "ConnectTimeout", "ConnectionError") or "requests" in module:
+                raise NetworkError(f"Network timeout/error reaching Sonos device: {exc}") from exc
+            raise
 
     # ------------------------------------------------------------------
     # Discovery
@@ -318,17 +331,43 @@ class SoCoBackend:
         soco = self._registry.get(coordinator_uid)
 
         def _run() -> None:
-            favorites = soco.get_sonos_favorites()
+            import difflib  # noqa: PLC0415
+
+            favorites = list(soco.music_library.get_sonos_favorites())
+            needle = favorite_item_id.lower()
+            titles = [f.title for f in favorites]
+            titles_lower = [t.lower() for t in titles]
+
+            # exact id or case-insensitive title
             match = next(
-                (f for f in favorites.get("favorites", []) if f.get("id") == favorite_item_id),
+                (
+                    f
+                    for f in favorites
+                    if f.title.lower() == needle or getattr(f, "item_id", None) == favorite_item_id
+                ),
                 None,
             )
+            # fuzzy fallback
             if match is None:
-                raise ValueError(f"Favorite {favorite_item_id!r} not found on speaker")
+                close = difflib.get_close_matches(needle, titles_lower, n=1, cutoff=0.6)
+                if close:
+                    match = favorites[titles_lower.index(close[0])]
+            if match is None:
+                raise TargetNotFoundError(favorite_item_id)
+            from soco.data_structures import DidlFavorite, to_didl_string  # noqa: PLC0415
+
+            playable = match.reference if isinstance(match, DidlFavorite) else match
+            uri = playable.resources[0].uri if playable.resources else ""
+            meta = to_didl_string(playable)
             if replace_queue:
                 soco.clear_queue()
-            soco.add_to_queue(match["resources"][0] if match.get("resources") else match["uri"])
-            soco.play_from_queue(0)
+            # container URIs (playlists) must go via queue; streams play directly
+            if uri.startswith("x-rincon-cpcontainer:") or uri.startswith("x-rincon-playlist:"):
+                # large playlists can take >20s to load; bump timeout
+                soco.add_to_queue(playable, timeout=90)
+                soco.play_from_queue(0)
+            else:
+                soco.play_uri(uri, meta=meta, start=True)
 
         await self._run_soco(_run)
         return CommandResult.success("transport.play_favorite")
@@ -460,18 +499,22 @@ class SoCoBackend:
     # ------------------------------------------------------------------
 
     async def list_favorites(self, speaker_uid: str) -> list[dict]:
+        from sonos.core.sonos.favorites import _detect_favorite_source  # noqa: PLC0415
+
         soco = self._registry.get(speaker_uid)
-        raw = await self._run_soco(soco.get_sonos_favorites)
-        favs = raw.get("favorites", [])
-        return [
-            {
-                "item_id": f.get("id", ""),
-                "title": f.get("title", ""),
-                "uri": f.get("uri", ""),
-                "metadata": f.get("meta", ""),
-            }
-            for f in favs
-        ]
+        result = await self._run_soco(soco.music_library.get_sonos_favorites)
+        out = []
+        for item in result:
+            uri = item.resources[0].uri if item.resources else ""
+            out.append(
+                {
+                    "item_id": getattr(item, "item_id", ""),
+                    "title": item.title,
+                    "uri": uri,
+                    "source": _detect_favorite_source(uri).value,
+                }
+            )
+        return out
 
     # ------------------------------------------------------------------
     # Alarms
@@ -509,7 +552,7 @@ class SoCoBackend:
             alarms_set = get_alarms(soco)
             alarm = next((a for a in alarms_set if str(a.alarm_id) == alarm_id), None)
             if alarm is None:
-                raise ValueError(f"Alarm {alarm_id!r} not found")
+                raise TargetNotFoundError(alarm_id)
             for key, value in patch.items():
                 setattr(alarm, key, value)
             alarm.save()
@@ -541,7 +584,7 @@ class SoCoBackend:
                 return datetime.time(int(parts[0]), int(parts[1]))
             if len(parts) == 3:  # noqa: PLR2004
                 return datetime.time(int(parts[0]), int(parts[1]), int(parts[2]))
-            raise ValueError(f"Cannot parse time {s!r}. Use HH:MM or HH:MM:SS.")
+            raise InvalidInputError(f"Cannot parse time {s!r}. Use HH:MM or HH:MM:SS.")
 
         def _run() -> str:
             alarm = Alarm(

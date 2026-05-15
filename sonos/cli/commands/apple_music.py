@@ -29,7 +29,7 @@ def apple_auth(
     typer.echo(f"developer.enabled:{dev.enabled}")
     typer.echo(f"key_id:           {dev.key_id or '—'}")
     typer.echo(f"team_id:          {dev.team_id or '—'}")
-    typer.echo(f"key_path:         {dev.key_path or '—'}")
+    typer.echo(f"key_path:         {dev.private_key_path or '—'}")
     typer.echo(f"default_storefront: {am.default_storefront}")
 
 

@@ -111,3 +111,11 @@ class AppleMusicNotAuthorizedOnSonos(SonosError):
 
 class AppleMusicQueueAddFailed(SonosError):
     code = "apple_music_queue_add_failed"
+
+
+class InvalidInputError(SonosError):
+    code = "invalid_input"
+
+
+class PlaybackError(SonosError):
+    code = "playback_error"

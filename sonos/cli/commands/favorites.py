@@ -26,10 +26,14 @@ def favorites_list(
     async def _run():
         svc = await make_service(config_dir)
         topology = await svc.discover()
-        hids = list(topology.household_ids)
+        seen_households: set[str] = set()
         result = []
-        for hid in hids:
-            favs = await svc._backend.list_favorites(hid)  # noqa: SLF001
+        for speaker in topology.speakers:
+            hid = speaker.household_id or ""
+            if hid in seen_households:
+                continue
+            seen_households.add(hid)
+            favs = await svc._backend.list_favorites(speaker.uid)  # noqa: SLF001
             result.extend(favs)
         await svc.shutdown()
         return result

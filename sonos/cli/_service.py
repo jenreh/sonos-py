@@ -23,7 +23,9 @@ _EXIT_CODES: dict[str, int] = {
     "not_implemented": 5,
     "ambiguous_target": 6,
     "confirmation_required": 7,
-    "unknown": 8,
+    "playback_error": 8,
+    "invalid_input": 9,
+    "unknown": 10,
 }
 
 

@@ -363,8 +363,9 @@ class SnapshotRepository:
 
     async def get(self, snapshot_id_or_name: str) -> dict[str, Any] | None:
         cur = await self._db.execute(
-            "SELECT * FROM snapshots WHERE snapshot_id = ? OR name = ? ORDER BY created_at DESC LIMIT 1",
-            (snapshot_id_or_name, snapshot_id_or_name),
+            "SELECT * FROM snapshots WHERE snapshot_id = ? OR name = ?"
+            " OR snapshot_id LIKE ? ORDER BY created_at DESC LIMIT 1",
+            (snapshot_id_or_name, snapshot_id_or_name, f"{snapshot_id_or_name}%"),
         )
         row = await cur.fetchone()
         if not row:
