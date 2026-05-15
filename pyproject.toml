@@ -1,12 +1,12 @@
 [project]
 name = "sonos-py"
 version = "0.1.0"
-description = "Local control of the Philips Hue Bridge via CLIP API v2: library, CLI, and MCP server"
+description = "Local Sonos controller: CLI and MCP server, no cloud required"
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Jens Rehpöhler" }]
-keywords = ["hue", "philips-hue", "smart-home", "mcp", "clip-api"]
+keywords = ["sonos", "smart-home", "mcp", "cli", "local"]
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
@@ -16,30 +16,39 @@ classifiers = [
 ]
 
 dependencies = [
-    "httpx==0.28.1",
-    "typer==0.25.1",
-    "pydantic==2.13.4",
-    "fastmcp==3.3.0",
-    "httpx-sse==0.4.3",
-    "zeroconf==0.148.0",
-    "platformdirs==4.9.6",
+    "soco[events-asyncio]>=0.31,<0.33",
+    "fastmcp>=3.3,<4",
+    "typer>=0.16,<1",
+    "rich>=14,<16",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.10,<3",
+    "aiohttp>=3.11,<4",
+    "aiosqlite>=0.20,<1",
+    "zeroconf>=0.140,<1",
+    "defusedxml>=0.7,<1",
+    "tomli-w>=1.1,<2",
+    "PyYAML>=6,<7",
+    "keyring>=25,<26",
+    "PyJWT[crypto]>=2.10,<3",
 ]
 
 [dependency-groups]
 dev = [
-    "bump-my-version==1.3.0",
-    "detect-secrets==1.5.0",
-    "pre-commit==4.6.0",
-    "pytest_asyncio==1.3.0",
-    "pytest-cov==7.1.0",
-    "pytest-httpx==0.36.2",
-    "pytest==9.0.3",
-    "ruff==0.15.13",
+    "bump-my-version>=1.3,<2",
+    "detect-secrets>=1.5,<2",
+    "pre-commit>=4.6,<5",
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.25,<1",
+    "pytest-cov>=7,<8",
+    "pytest-httpserver>=1,<2",
+    "ruff>=0.9,<1",
+    "mypy>=1.14,<2",
+    "types-PyYAML",
 ]
 
 [project.scripts]
-hue = "sonos.cli:app"
-hue-mcp = "sonos.mcp_server:main"
+sonos = "sonos.cli.main:app"
+sonos-mcp = "sonos.mcp_server.server:main"
 
 [project.urls]
 Homepage = "https://github.com/jenreh/sonos-py"
@@ -51,7 +60,6 @@ packages = ["sonos"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/sonos",
-    "/docs",
     "README.md",
     "pyproject.toml",
 ]
@@ -75,7 +83,7 @@ exclude = [
 
 [tool.bumpversion]
 commit = false
-current_version = "0.3.2"
+current_version = "0.1.0"
 tag = false
 allow-dirty = false
 
@@ -93,97 +101,90 @@ replace = '![Version](https://img.shields.io/badge/version-{new_version}-blue)'
 cache-dir = ".cache/ruff"
 indent-width = 4
 line-length = 88
-target-version = "py312"
+target-version = "py314"
 extend-exclude = [
     ".cache",
     ".claude",
     ".devcontainer",
     ".github",
     ".vscode",
-    ".web",
     "build",
     "dist",
     "docs",
-    "infra",
-    "prompts",
-    "scripts",
-    "static",
 ]
 
 [tool.ruff.lint]
 extend-select = ["I"]
 ignore = [
-    "EM101", # Exception must not use a string literal
-    "EM102", # Exception must not use a string literal with a format specifier
-    "ISC001", # Implicit string concatenation
-    "N811", # Constant {name} imported as non-constant {asname}
-    "N818", # Exception name {name} should be named with an Error suffix
-    "PLR0913", # Too many arguments in function
-    "PT011", # pytest-raises-too-broad
-    "PT012", # pytest.raises() block should contain a single simple statement
-    "RUF012", # Mutable class attributes should be annotated with typing.ClassVar
-    "RUF100", # unused noqa
-    "SIM300", # Yoda conditions are discouraged, use {suggestion} instead
-    "E501", # Line too long
-    "B008", # Function call in argument defaults (needed for Typer)
-    "ASYNC240", # Async functions not using trio.Path
-    "PYI034", # __aenter__ return Self
-    "S101", # Use of assert
-    "PLR0912", # Too many branches
-    "ASYNC109", # Async timeout parameter
-    "ARG001", # Unused function argument
-    "PLR2004", # Magic value used in comparison
-    "PLW0603", # Using global statement
-    "PLC0415", # import at top level
-    "SIM105", # Use contextlib.suppress
-    "PLW2901", # loop variable overwritten
-    "PLR0911", # Too many return statements
-    "B017", # assert blind exception
-    "RUF001", # String contains ambiguous character
-    "RUF002", # Docstring contains ambiguous character
-    "RUF003", # Comment contains ambiguous character
+    "EM101",
+    "EM102",
+    "ISC001",
+    "N811",
+    "N818",
+    "PLR0913",
+    "PT011",
+    "PT012",
+    "RUF012",
+    "RUF100",
+    "SIM300",
+    "E501",
+    "B008",
+    "ASYNC240",
+    "PYI034",
+    "S101",
+    "PLR0912",
+    "ASYNC109",
+    "ARG001",
+    "PLR2004",
+    "PLW0603",
+    "PLC0415",
+    "SIM105",
+    "PLW2901",
+    "PLR0911",
+    "B017",
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 select = [
-    "A", # Flake8-builtins
+    "A",
     "ANN001",
-    "ANN201", # Missing return type annotation
-    "ARG", # Flake8-arguments
-    "ASYNC", # Flake8-async
-    "B", # Flake8-bugbear
-    "C4", # Flake8-comprehensions
-    "DTZ", # Flake8-datetimez
-    "E", # Pyflakes
-    "EM", # Flake8-errmsg
-    "EXE", # Flake8-executable
-    "F", # Pyflakes
-    "FIX", # Flake8-fixme
-    "FAST", # FastAPI
-    "G", # Flake8-logging-format
-    "ICN", # Flake8-import-conventions
-    "LOG", # Flake8-logging
-    "N", # Naming
-    "PERF", # Perflint
-    "PIE", # Flake8-pie
-    "PL", # PyLint
-    "PT", # Flake8-pytest-style
-    "PTH", # Flake8-use-pathlib
-    "PYI", # Flake8-pyi
-    "Q", # Flake8-quotes
-    "RET", # Flake8-return
-    "RUF", # Ruff
-    "S", # Flake8-bandit
-    "SIM", # Flake8-simplify
-    "SLF", # Flake8-self
-    "SLF001", # Flake8-self
-    "T20", # Flake8-print
-    "TID", # Flake8-tidy-imports
-    "UP", # PyUpgrade - will show hints for deprecated syntax in python 3.11
-    "W", # pycodestyle
+    "ANN201",
+    "ARG",
+    "ASYNC",
+    "B",
+    "C4",
+    "DTZ",
+    "E",
+    "EM",
+    "EXE",
+    "F",
+    "FIX",
+    "G",
+    "ICN",
+    "LOG",
+    "N",
+    "PERF",
+    "PIE",
+    "PL",
+    "PT",
+    "PTH",
+    "PYI",
+    "Q",
+    "RET",
+    "RUF",
+    "S",
+    "SIM",
+    "SLF",
+    "SLF001",
+    "T20",
+    "TID",
+    "UP",
+    "W",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401", "I001"] # {name} imported but unused
-"server.py" = ["W605", "S104"] # invalid escape sequence
+"__init__.py" = ["F401", "I001"]
 "test_**.py" = [
     "S101",
     "PLR2004",
@@ -200,8 +201,6 @@ select = [
     "E741",
     "RUF059",
 ]
-"alembic/versions/*.py" = ["E501"]
-"indexer/main.py" = ["S104"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -213,71 +212,37 @@ docstring-code-line-length = "dynamic"
 exclude = ["*.pyi"]
 
 [tool.ruff.lint.isort]
-known-local-folder = ["app", "alembic"]
-known-first-party = ["appkit_*"]
+known-local-folder = ["sonos"]
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
 asyncio_mode = "auto"
-
-[tool.pylint.'MESSAGES CONTROL']
-disable = [
-    "C0103",
-    "C0114",
-    "C0115",
-    "C0116",
-    "C0301",
-    "C0415",
-    "W0621",
-    "E0239",
-    "E1101",
-    "E1102",
-    "E1120",
-    "E1136",
-    "W0718",
-    "R0903",
-    "W0611",
-    "W0613",
-    "W0622",
+markers = [
+    "sonos_live: requires real Sonos hardware on the network",
 ]
 
 [tool.mypy]
 cache_dir = ".cache/mypy"
 disallow_untyped_defs = true
 incremental = true
-python_version = "3.12"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
-ignore_errors = true
-ignore_missing_imports = false
+ignore_missing_imports = true
 exclude = [
     ".cache",
     ".claude",
     ".venv",
-    ".venv.mac",
-    ".venv_mac",
-    ".web",
-    ".github",
-    ".devcontainer",
-    ".idea",
-    ".vscode",
     "build",
     "dist",
-    "docs",
-    "infra",
-    "prompts",
-    "scripts",
-    "static",
-    "uploads",
 ]
 
 [tool.coverage.run]
 branch = true
 source = ["sonos"]
 omit = [
-    "sonos/mcp_server.py",
-    "sonos/protocol/sse.py",
+    "sonos/mcp_server/server.py",
 ]
 
 [tool.coverage.report]
