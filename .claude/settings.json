@@ -24,6 +24,8 @@
       "Bash(.venv.mac/bin/python *)",
       "Bash(.venv.mac/bin/sonos *)",
       "Skill(create-readme:*)",
+      "Skill(sonos)",
+      "Skill(sonos:*)"
     ],
     "defaultMode": "acceptEdits"
   }
