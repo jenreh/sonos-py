@@ -49,6 +49,7 @@ dev = [
 [project.scripts]
 sonos = "sonos.cli.main:app"
 sonos-mcp = "sonos.mcp_server.server:main"
+sonos-py = "sonos.mcp_server.server:main"
 
 [project.urls]
 Homepage = "https://github.com/jenreh/sonos-py"
