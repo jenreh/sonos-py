@@ -16,7 +16,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "soco[events-asyncio]==0.31.0",
+    "soco[events-asyncio]==0.31.1",
     "fastmcp>=3.3.0",
     "typer>=0.25.1",
     "rich>=15.0.0",
